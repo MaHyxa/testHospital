@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: Test Hospital
+  datasource:
+    url: jdbc:mysql://localhost:3308/hospital
+    username: test_hospital
+    password: test_password
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10  # Optional: Adjust the max pool size
+  cache:
+    type: jcache
+    jcache:
+      config: classpath:ehcache.xml
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true  # Optional: Enables SQL logging in console
+    properties:
+      hibernate:
+        hibernate.dialect: org.hibernate.dialect.MySQL8Dialect
+        format_sql: true  # Optional: Formats SQL output for better readability

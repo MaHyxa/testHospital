@@ -1,0 +1,30 @@
+<config xmlns="http://www.ehcache.org/v3"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.ehcache.org/v3 http://www.ehcache.org/schema/ehcache-core.xsd">
+
+    <!-- Cache for storing the count of patient visits -->
+    <cache alias="patientVisitCountCache">
+        <expiry>
+            <ttl unit="minutes">30</ttl> <!-- Time-to-live for cache entries -->
+        </expiry>
+        <heap unit="entries">1000</heap> <!-- Define heap resource -->
+
+    </cache>
+
+    <!-- Cache for storing patient visit data -->
+    <cache alias="patientVisitDataCache">
+        <expiry>
+            <ttl unit="minutes">30</ttl> <!-- Time-to-live for cache entries -->
+        </expiry>
+        <heap unit="entries">1000</heap> <!-- Define heap resource -->
+    </cache>
+
+    <!-- Cache for storing patients -->
+    <cache alias="patients">
+        <expiry>
+            <ttl unit="minutes">30</ttl> <!-- Time-to-live for cache entries -->
+        </expiry>
+        <heap unit="entries">1000</heap> <!-- Define heap resource -->
+
+    </cache>
+</config>
