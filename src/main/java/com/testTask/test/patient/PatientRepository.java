@@ -9,6 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface PatientRepository extends JpaRepository<Patient, Integer> {
     @Query("SELECT p.id FROM Patient p WHERE p.id = :id")
-//    @Cacheable(value = "patients", key = "#id")
+    @Cacheable(value = "patients", key = "#id")
     Integer findPatientIdById(@Param("id") int id);
 }

@@ -29,11 +29,32 @@ public class VisitServiceImpl implements VisitService {
     @Override
     public ResponseEntity<?> createVisit(VisitRequestDTO visitRequest) {
 
+        if (visitRequest == null) {
+            throw new IllegalArgumentException("Visit request cannot be null");
+        }
+
+        if (visitRequest.getPatientId() == null) {
+            throw new IllegalArgumentException("Patient ID cannot be null");
+        }
+
+        if (visitRequest.getDoctorId() == null) {
+            throw new IllegalArgumentException("Doctor ID cannot be null");
+        }
+
         Visit visit = new Visit();
-        Integer patientId = patientRepository.findPatientIdById(visitRequest.getPatientId());
-        LocalDateTime start = LocalDateTime.parse(visitRequest.getStart());
-        LocalDateTime end = LocalDateTime.parse(visitRequest.getEnd());
+        LocalDateTime start;
+        LocalDateTime end;
         int doctorId = visitRequest.getDoctorId();
+
+        try {
+            start = LocalDateTime.parse(visitRequest.getStart());
+            end = LocalDateTime.parse(visitRequest.getStart());
+        }
+        catch (Exception e) {
+            throw new IllegalArgumentException("Time must be in the correct format: yyyy-MM-dd'T'HH:mm:ss");
+        }
+
+        Integer patientId = patientRepository.findPatientIdById(visitRequest.getPatientId());
 
         if(patientId != null ) {
             Patient patient = new Patient();
@@ -70,17 +91,22 @@ public class VisitServiceImpl implements VisitService {
             return new ResponseEntity<>("Unable to create visit. Selected time is occupied, please choose another time.", HttpStatus.CONFLICT);
         }
 
-        visitRepository.save(visit);
+        try {
+            visitRepository.save(visit);
+        } catch (Exception e) {
+            throw new RuntimeException("An unexpected error occurred while saving visit", e);
+        }
+
         return new ResponseEntity<>("Visit successfully created", HttpStatus.OK);
     }
 
     @Override
-//    @Cacheable(value = "patientVisitDataCache", key = """
-//                 T(String).valueOf(#page) +
-//                 T(String).valueOf(#size) +
-//                 T(String).valueOf(#search != null ? #search : 'null') +
-//                 T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')
-//                 """)
+    @Cacheable(value = "patientVisitDataCache", key = """
+                 T(String).valueOf(#page) +
+                 T(String).valueOf(#size) +
+                 T(String).valueOf(#search != null ? #search : 'null') +
+                 T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')
+                 """)
     public List<PatientVisitDTO> findPatientsOnPage(int page, int size, String search, String doctorIds) {
 
         List<Object[]> patients = visitRepository.findPatientsOnPage(page, size, search, doctorIds);

@@ -26,6 +26,22 @@ public class TimeVariablesValidator implements ConstraintValidator<ValidateTimeV
             String start = (String) startField.get(value);
             String end = (String) endField.get(value);
 
+            if(start == null) {
+                context.disableDefaultConstraintViolation();
+                context.buildConstraintViolationWithTemplate("Start time is required")
+                        .addPropertyNode("start")
+                        .addConstraintViolation();
+                return false;
+            }
+
+            if(end == null) {
+                context.disableDefaultConstraintViolation();
+                context.buildConstraintViolationWithTemplate("End time is required")
+                        .addPropertyNode("end")
+                        .addConstraintViolation();
+                return false;
+            }
+
             LocalDateTime startDateTime;
             LocalDateTime endDateTime;
 
