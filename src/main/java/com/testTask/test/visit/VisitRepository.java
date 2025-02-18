@@ -27,7 +27,7 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
                 SELECT DISTINCT p.id, p.first_name, p.last_name
                 FROM patient p
                 LEFT JOIN visit v ON p.id = v.patient_id
-                JOIN doctor d ON v.doctor_id = d.id
+                LEFT JOIN doctor d ON v.doctor_id = d.id
                 WHERE (:search IS NULL OR MATCH(p.first_name, p.last_name) AGAINST (LOWER(:search) IN BOOLEAN MODE))
                 AND (:doctorIds IS NULL OR FIND_IN_SET(v.doctor_id, :doctorIds) > 0)
                 ORDER BY p.last_name
@@ -59,7 +59,7 @@ public interface VisitRepository extends JpaRepository<Visit, Long> {
                 SELECT COUNT(DISTINCT p.id)
                 FROM patient p
                 LEFT JOIN visit v ON p.id = v.patient_id
-                JOIN doctor d ON v.doctor_id = d.id
+                LEFT JOIN doctor d ON v.doctor_id = d.id
                 WHERE (:search IS NULL OR MATCH(p.first_name, p.last_name) AGAINST (LOWER(:search) IN BOOLEAN MODE))
                 AND (:doctorIds IS NULL OR FIND_IN_SET(v.doctor_id, :doctorIds) > 0)
             """, nativeQuery = true)
