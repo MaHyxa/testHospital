@@ -1,4 +1,4 @@
-### Current setup contain 999 doctors, 1001 patients and over 10k visits for testing.
+### Current setup contain 999 doctors, 5001 patients and over 100k visits for testing.
 Known bugs: This setup is using Caching to reduce call to database and it has 30 mins ttl. Thats why some of newly added records is not visible in cached requests.
 CacheEvict methods should be added, but i believe for test purposes it will not be a big concern. IF not - just disable caching or contact me.
 
