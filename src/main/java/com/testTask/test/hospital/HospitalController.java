@@ -46,7 +46,7 @@ public class HospitalController {
 
         PatientVisitsResponse response = new PatientVisitsResponse();
         response.setCount(visitService.countResults(convertedSearch, doctorIds));
-        response.setData(visitService.findPatientsOnPage(correctPage, size, convertedSearch, doctorIds));
+        response.setData(visitService.findPatientsOnPageWithLastVisits(correctPage, size, convertedSearch, doctorIds));
         return ResponseEntity.ok(response);
     }
 }

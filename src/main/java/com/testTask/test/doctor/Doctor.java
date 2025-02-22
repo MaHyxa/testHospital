@@ -24,7 +24,8 @@ public class Doctor {
     @Column(length = 100, nullable = false)
     private String lastName;
 
-    private Short doctorTimeZone;
+    @Column(length = 50, nullable = false)
+    private String doctorTimeZone;
 
     @OneToMany(mappedBy = "doctor")
     private List<Visit> visits;

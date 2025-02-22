@@ -13,9 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
 import java.util.*;
 
 @Primary
@@ -48,46 +46,42 @@ public class VisitServiceImpl implements VisitService {
 
         try {
             start = LocalDateTime.parse(visitRequest.getStart());
-            end = LocalDateTime.parse(visitRequest.getStart());
-        }
-        catch (Exception e) {
+            end = LocalDateTime.parse(visitRequest.getEnd());
+        } catch (Exception e) {
             throw new IllegalArgumentException("Time must be in the correct format: yyyy-MM-dd'T'HH:mm:ss");
         }
 
         Integer patientId = patientRepository.findPatientIdById(visitRequest.getPatientId());
 
-        if(patientId != null ) {
+        if (patientId != null) {
             Patient patient = new Patient();
             patient.setId(patientId);
             visit.setPatient(patient);
-        }
-        else return new ResponseEntity<>("Unable to create visit. Selected patient wasn't found", HttpStatus.NOT_FOUND);
+        } else
+            return new ResponseEntity<>("Unable to create visit. Selected patient wasn't found", HttpStatus.NOT_FOUND);
 
-        var checkVisits = visitRepository.checkDoctorExistingVisits(start, end, doctorId);
+        CheckDoctorExistingVisitsDTO checkVisits = visitRepository.checkDoctorExistingVisits(start, end, doctorId);
 
-        Object[] data = checkVisits.get(0);
-        long visitCount = ((Number) data[0]).longValue();
-        Short docTimeZone = (data[1] != null) ? ((Number) data[1]).shortValue() : null;
+        long visitCount = checkVisits.visitCount();
+        String docTimeZone = checkVisits.doctor_timeZone();
 
-        if(docTimeZone != null) {
+        if (docTimeZone != null) {
             Doctor doctor = new Doctor();
             doctor.setId(doctorId);
             visit.setDoctor(doctor);
-        }
-        else {
+        } else {
             return new ResponseEntity<>("Unable to create visit. Selected Doctor wasn't found", HttpStatus.NOT_FOUND);
         }
 
-        if(visitCount == 0) {
-            if(start.plusMinutes(docTimeZone).isBefore(LocalDateTime.now(ZoneOffset.UTC))) {
+        if (visitCount == 0) {
+            int offsetMinutes = getTimezoneOffsetInMinutes(docTimeZone);
+            if (start.minusMinutes(offsetMinutes).isBefore(LocalDateTime.now(ZoneOffset.UTC))) {
                 return new ResponseEntity<>("Unable to create visit. Visit can not be in past.", HttpStatus.CONFLICT);
+            } else {
+                visit.setStartDateTime(start.minusMinutes(offsetMinutes));
+                visit.setEndDateTime(end.minusMinutes(offsetMinutes));
             }
-            else {
-                visit.setStartDateTime(start.plusMinutes(docTimeZone));
-                visit.setEndDateTime(end.plusMinutes(docTimeZone));
-            }
-        }
-        else {
+        } else {
             return new ResponseEntity<>("Unable to create visit. Selected time is occupied, please choose another time.", HttpStatus.CONFLICT);
         }
 
@@ -102,38 +96,47 @@ public class VisitServiceImpl implements VisitService {
 
     @Override
     @Cacheable(value = "patientVisitDataCache", key = """
-                 T(String).valueOf(#page) +
-                 T(String).valueOf(#size) +
-                 T(String).valueOf(#search != null ? #search : 'null') +
-                 T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')
-                 """)
-    public List<PatientVisitDTO> findPatientsOnPage(int page, int size, String search, String doctorIds) {
+            T(String).valueOf(#page) +
+            T(String).valueOf(#size) +
+            T(String).valueOf(#search != null ? #search : 'null') +
+            T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')
+            """)
+    public List<PatientVisitDTO> findPatientsOnPageWithLastVisits(int page, int size, String search, String doctorIds) {
 
-        List<Object[]> patients = visitRepository.findPatientsOnPage(page, size, search, doctorIds);
-
-        //List for second query
-        List<Integer> patientIdsList = new ArrayList<>();
+        List<FindPatientsAndLastVisitsDTO> patients = visitRepository.findPatientsAndLastVisits(page, size, search, doctorIds);
 
         HashMap<Integer, PatientVisitDTO> result = new HashMap<>();
 
-        for (Object[] patient : patients) {
-            Integer patientId = (Integer) patient[0];
-            String firstName = (String) patient[1];
-            String lastName = (String) patient[2];
+        for (FindPatientsAndLastVisitsDTO patient : patients) {
 
-            patientIdsList.add(patientId);
-            result.put(patientId, new PatientVisitDTO(firstName, lastName, Collections.emptyList()));
-        }
+            // Handle patient with no visits
+            if (patient.doctorTimeZone() == null || patient.doctorTimeZone().isEmpty()) {
+                result.computeIfAbsent(patient.patientID(), id -> new PatientVisitDTO(
+                        patient.patientFirstName(),
+                        patient.patientLastName(),
+                        new ArrayList<>()));
+            } else {
+                int doctorTime = getTimezoneOffsetInMinutes(patient.doctorTimeZone());
 
-        //Collect Visits for selected patients and put their visit to PatientVisitDTO
-        Map<Integer, List<VisitDTO>> visitMap = collectVisitsForPatient(patientIdsList, doctorIds);
+                LocalDateTime visitStart = patient.visitStart().toLocalDateTime().plusMinutes(doctorTime);
+                LocalDateTime visitEnd = patient.visitEnd().toLocalDateTime().plusMinutes(doctorTime);
 
-        for (Map.Entry<Integer, List<VisitDTO>> entry : visitMap.entrySet()) {
-            Integer patientId = entry.getKey();
-            List<VisitDTO> visits = entry.getValue();
+                String formattedVisitStart = visitStart.format(TimeVariablesValidator.formatter);
+                String formattedVisitEnd = visitEnd.format(TimeVariablesValidator.formatter);
 
-            if (result.containsKey(patientId)) {
-                result.get(patientId).setLastVisits(visits);
+                String doctorFirstName = patient.doctorFirstName();
+                String doctorLastName = patient.doctorLastName();
+                long totalPatients = patient.totalPatients();
+
+                DoctorDTO doctor = new DoctorDTO(doctorFirstName, doctorLastName, (int) totalPatients);
+                VisitDTO visit = new VisitDTO(formattedVisitStart, formattedVisitEnd, doctor);
+
+                // If patient already exists, add visit; otherwise, create a new entry
+                result.computeIfAbsent(patient.patientID(), id -> new PatientVisitDTO(
+                        patient.patientFirstName(),
+                        patient.patientLastName(),
+                        new ArrayList<>())
+                ).getLastVisits().add(visit);
             }
         }
 
@@ -144,40 +147,6 @@ public class VisitServiceImpl implements VisitService {
     @Cacheable(value = "patientVisitCountCache", key = "T(String).valueOf(#search != null ? #search : 'null') + T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')")
     public int countResults(String search, String doctorIds) {
         return visitRepository.countResults(search, doctorIds);
-    }
-
-    private Map<Integer, List<VisitDTO>> collectVisitsForPatient(List<Integer> patientIdsList, String doctorIds) {
-        List<Object[]> results = visitRepository.collectVisitsForPatients(patientIdsList, doctorIds);
-
-        Map<Integer, List<VisitDTO>> patientVisitsMap = new HashMap<>();
-
-        for (Object[] result : results) {
-            Integer patientId = (Integer) result[0];
-            Timestamp visitStartTimestamp = (Timestamp) result[1];
-            Timestamp visitEndTimestamp = (Timestamp) result[2];
-            Short doctorTime = (Short) result[5];
-
-            LocalDateTime visitStart = visitStartTimestamp.toLocalDateTime();
-            LocalDateTime visitEnd = visitEndTimestamp.toLocalDateTime();
-
-            visitStart = visitStart.minusMinutes(doctorTime);
-            visitEnd = visitEnd.minusMinutes(doctorTime);
-
-            String formattedVisitStart = visitStart.format(TimeVariablesValidator.formatter);
-            String formattedVisitEnd = visitEnd.format(TimeVariablesValidator.formatter);
-
-            String doctorFirstName = (String) result[3];
-            String doctorLastName = (String) result[4];
-            int totalPatients = ((Number) result[6]).intValue();
-
-            DoctorDTO doctor = new DoctorDTO(doctorFirstName, doctorLastName, totalPatients);
-            VisitDTO visit = new VisitDTO(formattedVisitStart, formattedVisitEnd, doctor);
-
-            // Add visit to the correct patient's list in the map
-            patientVisitsMap.computeIfAbsent(patientId, k -> new ArrayList<>()).add(visit);
-        }
-
-        return patientVisitsMap;
     }
 
     public static String convertSearch(String search) {
@@ -194,6 +163,21 @@ public class VisitServiceImpl implements VisitService {
 
         return queryString.toString().trim();
     }
+
+    private static int getTimezoneOffsetInMinutes(String timeZoneId) {
+        if (timeZoneId == null || timeZoneId.isBlank()) {
+            throw new IllegalArgumentException("Time zone ID cannot be null or empty.");
+        }
+
+        try {
+            ZoneId zoneId = ZoneId.of(timeZoneId);
+            ZonedDateTime now = ZonedDateTime.now(zoneId);
+            return now.getOffset().getTotalSeconds() / 60;
+        } catch (DateTimeException e) {
+            throw new IllegalArgumentException("Invalid time zone ID: " + timeZoneId, e);
+        }
+    }
+
 
 //    public static String convertDoctorIdsToString(String doctorIds) {
 //        if (doctorIds == null || doctorIds.isEmpty()) {

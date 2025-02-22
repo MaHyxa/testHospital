@@ -7,7 +7,7 @@ import java.util.List;
 public interface VisitService {
     ResponseEntity<?> createVisit(VisitRequestDTO visitRequest);
 
-    List<PatientVisitDTO> findPatientsOnPage(int page, int size, String search, String doctorIds);
+    List<PatientVisitDTO> findPatientsOnPageWithLastVisits(int page, int size, String search, String doctorIds);
 
     int countResults(String search, String doctorIds);
 }

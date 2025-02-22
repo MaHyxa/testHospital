@@ -43,12 +43,11 @@ public class VisitServiceTest {
 
         Visit visit = new Visit();
 
-        Object[] mockExistingVisits = new Object[]{0, 5};
         when(visitRepository.checkDoctorExistingVisits(
                 any(LocalDateTime.class),
                 any(LocalDateTime.class),
                 anyInt()
-        )).thenReturn(Collections.singletonList(mockExistingVisits));
+        )).thenReturn(new CheckDoctorExistingVisitsDTO(0,"Europe/London"));
 
         when(visitRepository.save(any(Visit.class))).thenReturn(visit);
 
@@ -85,12 +84,11 @@ public class VisitServiceTest {
         // Example data
         VisitRequestDTO visitRequest = new VisitRequestDTO("2025-04-16T16:00:54", "2025-04-16T16:01:54", 10, 10);
 
-        Object[] mockExistingVisits = new Object[]{5L, (short) 3};
         when(visitRepository.checkDoctorExistingVisits(
                 any(LocalDateTime.class),
                 any(LocalDateTime.class),
                 anyInt()
-        )).thenReturn(Collections.singletonList(mockExistingVisits));
+        )).thenReturn(new CheckDoctorExistingVisitsDTO(5,"Europe/London"));
         when(patientRepository.findPatientIdById(10)).thenReturn(10);
 
         visitService.createVisit(visitRequest);
@@ -107,12 +105,11 @@ public class VisitServiceTest {
         // Example data
         VisitRequestDTO visitRequest = new VisitRequestDTO("2025-04-16T16:00:54", "2025-04-16T16:01:54", 10, 10);
 
-        Object[] mockExistingVisits = new Object[]{0L, null};
         when(visitRepository.checkDoctorExistingVisits(
                 any(LocalDateTime.class),
                 any(LocalDateTime.class),
                 anyInt()
-        )).thenReturn(Collections.singletonList(mockExistingVisits));
+        )).thenReturn(new CheckDoctorExistingVisitsDTO(0,null));
 
         ResponseEntity<?> response = visitService.createVisit(visitRequest);
 
@@ -130,12 +127,11 @@ public class VisitServiceTest {
         // Example data
         VisitRequestDTO visitRequest = new VisitRequestDTO("2025-04-16T16:00:54", "2025-04-16T16:01:54", 10, 10);
 
-        Object[] mockExistingVisits = new Object[]{10, 5};
         when(visitRepository.checkDoctorExistingVisits(
                 any(LocalDateTime.class),
                 any(LocalDateTime.class),
                 anyInt()
-        )).thenReturn(Collections.singletonList(mockExistingVisits));
+        )).thenReturn(new CheckDoctorExistingVisitsDTO(10,"Europe/London"));
 
         ResponseEntity<?> response = visitService.createVisit(visitRequest);
 
@@ -295,9 +291,9 @@ public class VisitServiceTest {
         String search = "testName";
         String doctorIds = "1,2,3";
 
-        when(visitRepository.findPatientsOnPage(page, size, search, doctorIds)).thenReturn(Collections.emptyList());
+        when(visitRepository.findPatientsAndLastVisits(page, size, search, doctorIds)).thenReturn(Collections.emptyList());
 
-        List<PatientVisitDTO> result = visitService.findPatientsOnPage(page, size, search, doctorIds);
+        List<PatientVisitDTO> result = visitService.findPatientsOnPageWithLastVisits(page, size, search, doctorIds);
 
         assertTrue(result.isEmpty());
     }
@@ -310,11 +306,11 @@ public class VisitServiceTest {
         String search = "John";
         String doctorIds = "1,2,3";
 
-        when(visitRepository.findPatientsOnPage(page, size, search, doctorIds)).thenReturn(Collections.emptyList());
+        when(visitRepository.findPatientsAndLastVisits(page, size, search, doctorIds)).thenReturn(Collections.emptyList());
 
-        visitService.findPatientsOnPage(page, size, search, doctorIds);
+        visitService.findPatientsOnPageWithLastVisits(page, size, search, doctorIds);
 
-        verify(visitRepository, times(1)).findPatientsOnPage(page, size, search, doctorIds);
+        verify(visitRepository, times(1)).findPatientsAndLastVisits(page, size, search, doctorIds);
     }
 
 }
