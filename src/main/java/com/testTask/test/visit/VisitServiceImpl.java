@@ -144,6 +144,55 @@ public class VisitServiceImpl implements VisitService {
     }
 
     @Override
+    @Cacheable(value = "patientVisitDataCache", key = """
+            T(String).valueOf(#page) +
+            T(String).valueOf(#size) +
+            T(String).valueOf(#search != null ? #search : 'null') +
+            T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')
+            """)
+    public List<PatientVisitDTO> findPatientsWithDenseRankForExtraLargeData(int page, int size, String search, String doctorIds) {
+
+        List<FindPatientsAndLastVisitsDTO> patients = visitRepository.findPatientsWithDenseRankForExtraLargeData(page, size, search, doctorIds);
+
+        HashMap<Integer, PatientVisitDTO> result = new HashMap<>();
+
+        for (FindPatientsAndLastVisitsDTO patient : patients) {
+
+            // Handle patient with no visits
+            if (patient.doctorTimeZone() == null || patient.doctorTimeZone().isEmpty()) {
+                result.computeIfAbsent(patient.patientID(), id -> new PatientVisitDTO(
+                        patient.patientFirstName(),
+                        patient.patientLastName(),
+                        new ArrayList<>()));
+            } else {
+                int doctorTime = getTimezoneOffsetInMinutes(patient.doctorTimeZone());
+
+                LocalDateTime visitStart = patient.visitStart().toLocalDateTime().plusMinutes(doctorTime);
+                LocalDateTime visitEnd = patient.visitEnd().toLocalDateTime().plusMinutes(doctorTime);
+
+                String formattedVisitStart = visitStart.format(TimeVariablesValidator.formatter);
+                String formattedVisitEnd = visitEnd.format(TimeVariablesValidator.formatter);
+
+                String doctorFirstName = patient.doctorFirstName();
+                String doctorLastName = patient.doctorLastName();
+                long totalPatients = patient.totalPatients();
+
+                DoctorDTO doctor = new DoctorDTO(doctorFirstName, doctorLastName, (int) totalPatients);
+                VisitDTO visit = new VisitDTO(formattedVisitStart, formattedVisitEnd, doctor);
+
+                // If patient already exists, add visit; otherwise, create a new entry
+                result.computeIfAbsent(patient.patientID(), id -> new PatientVisitDTO(
+                        patient.patientFirstName(),
+                        patient.patientLastName(),
+                        new ArrayList<>())
+                ).getLastVisits().add(visit);
+            }
+        }
+
+        return new ArrayList<>(result.values());
+    }
+
+    @Override
     @Cacheable(value = "patientVisitCountCache", key = "T(String).valueOf(#search != null ? #search : 'null') + T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')")
     public int countResults(String search, String doctorIds) {
         return visitRepository.countResults(search, doctorIds);

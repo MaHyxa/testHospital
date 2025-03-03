@@ -155,4 +155,57 @@ List<FindPatientsAndLastVisitsDTO> findPatientsAndLastVisits(@Param("page") int 
                                                                  @Param("search") String search,
                                                                  @Param("doctorIds") String doctorIds);
 
+    @Query(value = """
+            WITH
+            patient_filter AS (
+            SELECT p.id as patient_id,
+            p.first_name as patientFirstName,
+            p.last_name as patientLastName,
+            v.start_date_time AS visitStart,
+            v.end_date_time AS visitEnd,
+            d.first_name AS doctorFirstName,
+            d.last_name AS doctorLastName,
+            d.doctor_time_zone AS doctorTime,
+            dc.totalPatients as totalPatients
+            FROM patient p
+            LEFT JOIN visit v ON p.id = v.patient_id
+            LEFT JOIN doctor d ON v.doctor_id = d.id
+            LEFT JOIN (
+                SELECT
+                    v3.doctor_id,
+                    COUNT(DISTINCT v3.patient_id) AS totalPatients
+                FROM visit v3
+                WHERE v3.end_date_time <= NOW()
+                GROUP BY v3.doctor_id
+            ) AS dc ON dc.doctor_id = v.doctor_id
+            WHERE (:search IS NULL OR MATCH(p.first_name, p.last_name) AGAINST (LOWER(:search) IN BOOLEAN MODE))
+            AND (:doctorIds IS NULL OR FIND_IN_SET(d.id, :doctorIds) > 0)
+            AND (v.patient_id IS NULL
+               OR v.end_date_time = (
+                    SELECT MAX(v2.end_date_time)
+                    FROM visit v2
+                    WHERE v2.patient_id = v.patient_id
+                    AND v2.doctor_id = v.doctor_id
+                    AND v2.end_date_time <= NOW()))),
+            ranked_patients AS (
+                        SELECT *,
+                        DENSE_RANK() OVER (ORDER BY patient_id) AS ranking
+                        FROM patient_filter)
+            SELECT
+            patient_id,
+            patientFirstName,
+            patientLastName,
+            visitStart,
+            visitEnd,
+            doctorFirstName,
+            doctorLastName,
+            doctorTime,
+            totalPatients
+            FROM ranked_patients
+            WHERE ranking BETWEEN (:page * :size + 1) AND ((:page + 1) * :size);
+            """, nativeQuery = true)
+    List<FindPatientsAndLastVisitsDTO> findPatientsWithDenseRankForExtraLargeData(@Param("page") int page,
+                                                                 @Param("size") int size,
+                                                                 @Param("search") String search,
+                                                                 @Param("doctorIds") String doctorIds);
 }

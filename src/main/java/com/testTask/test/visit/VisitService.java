@@ -9,5 +9,7 @@ public interface VisitService {
 
     List<PatientVisitDTO> findPatientsOnPageWithLastVisits(int page, int size, String search, String doctorIds);
 
+    List<PatientVisitDTO> findPatientsWithDenseRankForExtraLargeData(int page, int size, String search, String doctorIds);
+
     int countResults(String search, String doctorIds);
 }
