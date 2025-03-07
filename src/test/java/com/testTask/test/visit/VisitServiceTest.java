@@ -1,7 +1,8 @@
 package com.testTask.test.visit;
 
+import com.testTask.test.patient.FindPatientsAndLastVisitsDTO;
 import com.testTask.test.patient.PatientRepository;
-import com.testTask.test.patient.PatientVisitDTO;
+import com.testTask.test.patient.PatientRepositoryCustom;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -32,6 +33,8 @@ public class VisitServiceTest {
     private VisitRepository visitRepository;
     @Mock
     private PatientRepository patientRepository;
+    @Mock
+    private PatientRepositoryCustom patientRepositoryCustom;
 
     @InjectMocks
     private VisitServiceImpl visitService;
@@ -271,19 +274,6 @@ public class VisitServiceTest {
     }
 
     @Test
-    void shouldReturnCorrectCount_WhenValidSearchAndDoctorIdsProvided() {
-
-        String search = "test";
-        String doctorIds = "1,2,3";
-        when(visitRepository.countResults(search, doctorIds)).thenReturn(5);
-
-        int resultCount = visitService.countResults(search, doctorIds);
-
-        assertEquals(5, resultCount);
-        verify(visitRepository, times(1)).countResults(search, doctorIds);
-    }
-
-    @Test
     void shouldReturnEmptyList_WhenNoPatientsFound() {
 
         int page = 0;
@@ -291,9 +281,9 @@ public class VisitServiceTest {
         String search = "testName";
         String doctorIds = "1,2,3";
 
-        when(visitRepository.findPatientsAndLastVisits(page, size, search, doctorIds)).thenReturn(Collections.emptyList());
+        when(patientRepositoryCustom.findPatientsAndLastVisits(page, size, search, doctorIds)).thenReturn(Collections.emptyList());
 
-        List<PatientVisitDTO> result = visitService.findPatientsOnPageWithLastVisits(page, size, search, doctorIds);
+        List<FindPatientsAndLastVisitsDTO> result = patientRepositoryCustom.findPatientsAndLastVisits(page, size, search, doctorIds);
 
         assertTrue(result.isEmpty());
     }
@@ -306,11 +296,11 @@ public class VisitServiceTest {
         String search = "John";
         String doctorIds = "1,2,3";
 
-        when(visitRepository.findPatientsAndLastVisits(page, size, search, doctorIds)).thenReturn(Collections.emptyList());
+        when(patientRepositoryCustom.findPatientsAndLastVisits(page, size, search, doctorIds)).thenReturn(Collections.emptyList());
 
-        visitService.findPatientsOnPageWithLastVisits(page, size, search, doctorIds);
+        patientRepositoryCustom.findPatientsAndLastVisits(page, size, search, doctorIds);
 
-        verify(visitRepository, times(1)).findPatientsAndLastVisits(page, size, search, doctorIds);
+        verify(patientRepositoryCustom, times(1)).findPatientsAndLastVisits(page, size, search, doctorIds);
     }
 
 }

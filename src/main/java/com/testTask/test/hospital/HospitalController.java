@@ -1,6 +1,5 @@
 package com.testTask.test.hospital;
 
-import com.testTask.test.patient.PatientVisitsResponse;
 import com.testTask.test.visit.VisitRequestDTO;
 import com.testTask.test.visit.VisitService;
 import com.testTask.test.visit.VisitServiceImpl;
@@ -42,33 +41,7 @@ public class HospitalController {
         }
 
         String convertedSearch = VisitServiceImpl.convertSearch(search);
-        int correctPage = page * size;
 
-        PatientVisitsResponse response = new PatientVisitsResponse();
-        response.setCount(visitService.countResults(convertedSearch, doctorIds));
-        response.setData(visitService.findPatientsOnPageWithLastVisits(correctPage, size, convertedSearch, doctorIds));
-        return ResponseEntity.ok(response);
-    }
-
-    @GetMapping("/patientVisitsWithDenseRank")
-    public ResponseEntity<?> getPatientVisitsWithDenseRank(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) String doctorIds) {
-
-        if (search != null && !search.matches("^[a-zA-Z ]+$")) {
-            return ResponseEntity.badRequest().body("Invalid or empty search parameter! Only alphabets and spaces are allowed.");
-        }
-        if (doctorIds != null && !doctorIds.matches("^[0-9,]+$")) {
-            return ResponseEntity.badRequest().body("Invalid or empty search parameter! Only numbers and comas are allowed.");
-        }
-
-        String convertedSearch = VisitServiceImpl.convertSearch(search);
-
-        PatientVisitsResponse response = new PatientVisitsResponse();
-        response.setCount(visitService.countResults(convertedSearch, doctorIds));
-        response.setData(visitService.findPatientsWithDenseRankForExtraLargeData(page, size, convertedSearch, doctorIds));
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(visitService.findPatientsAndLastVisits(page, size, convertedSearch, doctorIds));
     }
 }

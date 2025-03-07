@@ -2,9 +2,7 @@ package com.testTask.test.visit;
 
 import com.testTask.test.doctor.Doctor;
 import com.testTask.test.doctor.DoctorDTO;
-import com.testTask.test.patient.Patient;
-import com.testTask.test.patient.PatientRepository;
-import com.testTask.test.patient.PatientVisitDTO;
+import com.testTask.test.patient.*;
 import com.testTask.test.utilities.TimeVariablesValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
@@ -23,6 +21,7 @@ public class VisitServiceImpl implements VisitService {
 
     private final PatientRepository patientRepository;
     private final VisitRepository visitRepository;
+    private final PatientRepositoryCustom patientRepositoryCustom;
 
     @Override
     public ResponseEntity<?> createVisit(VisitRequestDTO visitRequest) {
@@ -101,14 +100,17 @@ public class VisitServiceImpl implements VisitService {
             T(String).valueOf(#search != null ? #search : 'null') +
             T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')
             """)
-    public List<PatientVisitDTO> findPatientsOnPageWithLastVisits(int page, int size, String search, String doctorIds) {
+    public PatientVisitsResponse findPatientsAndLastVisits(int page, int size, String search, String doctorIds) {
 
-        List<FindPatientsAndLastVisitsDTO> patients = visitRepository.findPatientsAndLastVisits(page, size, search, doctorIds);
+        List<FindPatientsAndLastVisitsDTO> patients = patientRepositoryCustom.findPatientsAndLastVisits(page, size, search, doctorIds);
 
         HashMap<Integer, PatientVisitDTO> result = new HashMap<>();
+        long countResults = 0;
 
         for (FindPatientsAndLastVisitsDTO patient : patients) {
-
+            if(countResults == 0 && patient.countResults() != null) {
+                countResults = patient.countResults();
+            }
             // Handle patient with no visits
             if (patient.doctorTimeZone() == null || patient.doctorTimeZone().isEmpty()) {
                 result.computeIfAbsent(patient.patientID(), id -> new PatientVisitDTO(
@@ -140,62 +142,7 @@ public class VisitServiceImpl implements VisitService {
             }
         }
 
-        return new ArrayList<>(result.values());
-    }
-
-    @Override
-    @Cacheable(value = "patientVisitDataCache", key = """
-            T(String).valueOf(#page) +
-            T(String).valueOf(#size) +
-            T(String).valueOf(#search != null ? #search : 'null') +
-            T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')
-            """)
-    public List<PatientVisitDTO> findPatientsWithDenseRankForExtraLargeData(int page, int size, String search, String doctorIds) {
-
-        List<FindPatientsAndLastVisitsDTO> patients = visitRepository.findPatientsWithDenseRankForExtraLargeData(page, size, search, doctorIds);
-
-        HashMap<Integer, PatientVisitDTO> result = new HashMap<>();
-
-        for (FindPatientsAndLastVisitsDTO patient : patients) {
-
-            // Handle patient with no visits
-            if (patient.doctorTimeZone() == null || patient.doctorTimeZone().isEmpty()) {
-                result.computeIfAbsent(patient.patientID(), id -> new PatientVisitDTO(
-                        patient.patientFirstName(),
-                        patient.patientLastName(),
-                        new ArrayList<>()));
-            } else {
-                int doctorTime = getTimezoneOffsetInMinutes(patient.doctorTimeZone());
-
-                LocalDateTime visitStart = patient.visitStart().toLocalDateTime().plusMinutes(doctorTime);
-                LocalDateTime visitEnd = patient.visitEnd().toLocalDateTime().plusMinutes(doctorTime);
-
-                String formattedVisitStart = visitStart.format(TimeVariablesValidator.formatter);
-                String formattedVisitEnd = visitEnd.format(TimeVariablesValidator.formatter);
-
-                String doctorFirstName = patient.doctorFirstName();
-                String doctorLastName = patient.doctorLastName();
-                long totalPatients = patient.totalPatients();
-
-                DoctorDTO doctor = new DoctorDTO(doctorFirstName, doctorLastName, (int) totalPatients);
-                VisitDTO visit = new VisitDTO(formattedVisitStart, formattedVisitEnd, doctor);
-
-                // If patient already exists, add visit; otherwise, create a new entry
-                result.computeIfAbsent(patient.patientID(), id -> new PatientVisitDTO(
-                        patient.patientFirstName(),
-                        patient.patientLastName(),
-                        new ArrayList<>())
-                ).getLastVisits().add(visit);
-            }
-        }
-
-        return new ArrayList<>(result.values());
-    }
-
-    @Override
-    @Cacheable(value = "patientVisitCountCache", key = "T(String).valueOf(#search != null ? #search : 'null') + T(String).valueOf(#doctorIds != null ? #doctorIds : 'null')")
-    public int countResults(String search, String doctorIds) {
-        return visitRepository.countResults(search, doctorIds);
+        return new PatientVisitsResponse(new ArrayList<>(result.values()), countResults);
     }
 
     public static String convertSearch(String search) {
@@ -226,33 +173,4 @@ public class VisitServiceImpl implements VisitService {
             throw new IllegalArgumentException("Invalid time zone ID: " + timeZoneId, e);
         }
     }
-
-
-//    public static String convertDoctorIdsToString(String doctorIds) {
-//        if (doctorIds == null || doctorIds.isEmpty()) {
-//            return null;
-//        }
-//
-//        // Check if the string contains only digits and commas
-//        if (isValidDoctorIds(doctorIds)) {
-//            return doctorIds;
-//        }
-//
-//        return Arrays.stream(doctorIds.split(","))
-//                .map(str -> {
-//                    try {
-//                        return Integer.parseInt(str.trim());
-//                    } catch (NumberFormatException e) {
-//                        return null; // Return null if invalid entry
-//                    }
-//                })
-//                .filter(Objects::nonNull) // Filter out invalid entries
-//                .map(String::valueOf) // Convert valid integers back to strings
-//                .collect(Collectors.joining(","));
-//    }
-//
-//    private static boolean isValidDoctorIds(String doctorIds) {
-//        return doctorIds.matches("^[0-9,]+$");
-//    }
-
 }
